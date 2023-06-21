@@ -1,55 +1,94 @@
 (() => {
-    let youtubeLeftControls, youtubePlayer;
-    let currentVideo = "";
-    let currentVideoBookmarks = [];
-
-    chrome.runtime.onMessage.addListener((obj, sender, response) => {
-        const { type, value, videoId } = obj;
-
-        if (type === "NEW") {
-            currentVideo = videoId;
-            newVideoLoaded();
-        }
+    waitForElm('#progress').then((elm) => {
+        console.log('Element is ready');
+        historyLoaded();
     });
 
-    const newVideoLoaded = () => {
-        const bookmarkBtnExists = document.getElementsByClassName("bookmark-btn")[0];
-        console.log(bookmarkBtnExists);
-
-        if (!bookmarkBtnExists) {
-            const bookmarkBtn = document.createElement("img");
-
-            bookmarkBtn.src = chrome.runtime.getURL("assets/bookmark.png");
-            bookmarkBtn.className = "ytp-button " + "bookmark-btn";
-            bookmarkBtn.title = "Click to bookmark current timestamp";
-
-            youtubeLeftControls = document.getElementsByClassName("ytp-left-controls")[0];
-            youtubePlayer = document.getElementsByClassName("video-stream")[0];
+    const historyLoaded = () => {
+        var lastNumVideosLoaded = 0;
+        var currentNumVideosLoaded = 0;
+        console.log("Before: Current:" + currentNumVideosLoaded + ", last:" + lastNumVideosLoaded);
+        while (true) {
+            var loadedThumbs = document.querySelectorAll("[id=thumbnail]");
+            currentNumVideosLoaded = loadedThumbs.length;
             
-            youtubeLeftControls.append(bookmarkBtn);
-            bookmarkBtn.addEventListener("click", addNewBookmarkEventHandler);
+            console.log("During: Current:" + currentNumVideosLoaded + ", last:" + lastNumVideosLoaded);
+            
+            console.log(loadedThumbs);
+            for (var i = 0; i < loadedThumbs.length; i++) {
+                var progressInd = loadedThumbs[i].querySelector("progress");
+                var vidLength = loadedThumbs[i].querySelector("[id=text]");
+                console.log(progressInd);
+                console.log(vidLength);
+                if (progressInd && vidLength) {
+                    console.log(progressInd);
+                    console.log(vidLength.innerText);
+                }
+            }
+            if (lastNumVideosLoaded == currentNumVideosLoaded) {
+                return;
+            }
+            lastNumVideosLoaded = currentNumVideosLoaded;
+            console.log("After: Current:" + currentNumVideosLoaded + ", last:" + lastNumVideosLoaded);
+            loadedThumbs[loadedThumbs.length - 1].scrollIntoView(true);
+            // window.scrollTo(0, document.body.scrollHeight);
+            // Wait until timeout for the length of querySelectorAll('[id=progress]') to get bigger than it is currently
+            waitForNodeListLengthIncrease("[id=thumbnail]", loadedThumbs.length, function(updatedNodeList) {
+                console.log("NodeList length increased!");
+              });
         }
+        
     }
 
-    const addNewBookmarkEventHandler = () => {
-        const currentTime = youtubePlayer.currentTime;
-        const newBookmark = {
-            time: currentTime,
-            desc: "Bookmark at " + getTime(currentTime),
-        };
-        console.log(newBookmark);
-
-        chrome.storage.sync.set({
-            [currentVideo]: JSON.stringify([...currentVideoBookmarks, newBookmark].sort((a, b) => a.time - b.time))
-        });
-    }
-
-    newVideoLoaded();
+    // historyLoaded();
 })();
 
-const getTime = t => {
-    var date = new Date(0);
-    date.setSeconds(1);
+function waitForElm(selector) {
+    return new Promise(resolve => {
+        if (document.querySelector(selector)) {
+            return resolve(document.querySelector(selector));
+        }
 
-    return date.toISOString().substr(11, 0);
+        const observer = new MutationObserver(mutations => {
+            if (document.querySelector(selector)) {
+                resolve(document.querySelector(selector));
+                observer.disconnect();
+            }
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    });
 }
+
+function waitForNodeListLengthIncrease(selector, initialLength, callback) {
+    var nodeList = document.querySelectorAll(selector);
+    
+    if (nodeList.length > initialLength) {
+      callback(nodeList);
+    } else {
+      var timeout = 10000; // 10 seconds timeout
+      var observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+          if (mutation.addedNodes.length > 0) {
+            var updatedNodeList = document.querySelectorAll(selector);
+            if (updatedNodeList.length > initialLength) {
+              clearTimeout(timeoutId); // Clear the timeout
+              observer.disconnect();
+              callback(updatedNodeList);
+            }
+          }
+        });
+      });
+  
+      var timeoutId = setTimeout(function() {
+        observer.disconnect();
+        console.log("Timeout reached. NodeList length did not increase within the specified time.");
+        alert("failed");
+      }, timeout);
+  
+      observer.observe(document.body, { childList: true, subtree: true });
+    }
+  }

@@ -1,11 +1,11 @@
 chrome.tabs.onUpdated.addListener((tabId, tab) => {
-    if (tab.url && tab.url.includes("youtube.com/watch")) {
+    if (tab.url && tab.url.includes("www.youtube.com/feed/history")) {
       const queryParameters = tab.url.split("?")[1];
-      const urlParameters = new URLSearchParams(queryParameters);
-      chrome.tabs.sendMessage(tabId, {
-        type: "NEW",
-        videoId: urlParameters.get("v"),
-      });
+      // const urlParameters = new URLSearchParams(queryParameters);
+      // chrome.tabs.sendMessage(tabId, {
+      //   type: "NEW",
+      //   videoId: urlParameters.get("v"),
+      // });
     }
   });
   
